@@ -1,0 +1,59 @@
+=== Nim code formatter / style checker
+
+.Features
+- [x] Add/remove whitespaces and commas in function calls
+- [ ] Sort imports
+- [x] Detect inconsistent variable/function naming
+- [ ] Enforce variable/function naming style
+- Enforce whitelines (in fixed number or a range):
+ - [ ] before functions
+ - [ ] on closing blocks
+ - [ ] end of file
+ - [ ] around imports
+- [ ] Optional # to close blocks
+
+==== Examples
+
+Input:
+[source,nim]
+----
+proc my_foo( a: string,  b:string,c:int, ): string  =
+  raise newException ( Exception ,
+    "foo" )
+  foo ( a , b , c )
+  d [ a ]  =  3
+  discard    "string to discard"
+
+  break
+  return   "string to return"
+
+----
+
+Output:
+[source,nim]
+----
+proc my_foo(a: string; b: string; c: int): string =
+  raise newException(Exception, "foo")
+  foo(a, b, c)
+  d[a] = 3
+  discard "string to discard"
+  break
+  return "string to return"
+----
+
+==== Usage
+
+[source,bash]
+----
+  nimfmt <filename.nim> [<filename.nim> ... ]
+  [ -p <prefix> ]     output file prefix
+  [ -s <suffix> ]     output file suffix
+  [ -c <filename>, ]  configuration file location(s) (default: ./.nimfmt.cfg ~/.nimfmt.cfg)
+  [ -i ]              update files in-place (dangerous!)
+  [ -w ]              overwrite existing files (automatically enabled when using -i)
+  [-v]                version
+  [-h]                this help
+
+  If any of -p ..., -s ... or -i are specified the output will be written to disk,
+  otherwise to stdout
+----
