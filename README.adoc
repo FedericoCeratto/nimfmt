@@ -1,16 +1,16 @@
 === Nim code formatter / style checker
 
 .Features
-- [x] Add/remove whitespaces and commas in function calls
-- [ ] Sort imports
-- [x] Detect inconsistent variable/function naming
-- [ ] Enforce variable/function naming style
-- Enforce whitelines (in fixed number or a range):
- - [ ] before functions
- - [ ] on closing blocks
- - [ ] end of file
- - [ ] around imports
-- [ ] Optional # to close blocks
+* [x] Add/remove whitespaces and commas in function calls
+* [ ] Sort imports
+* [x] Detect inconsistent variable/function naming
+* [ ] Enforce variable/function naming style
+* Enforce whitelines (in fixed number or a range):
+** [ ] before functions
+** [ ] on closing blocks
+** [ ] end of file
+** [ ] around imports
+* [ ] Optional # to close blocks
 
 ==== Examples
 
