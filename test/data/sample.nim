@@ -5,12 +5,18 @@
 #
 
 
+import
+  strutils
+
+# unsorted imports
 import strutils
 import os
 
-# n
+# comment
 
 import times, tables
+
+let camelCase = 3
 
 proc my_foo( a: string,  b:string,c:int, ): string  =
   ## I'm a doc comment
@@ -30,6 +36,14 @@ proc my_foo( a: string,  b:string,c:int, ): string  =
 
 
   continue
+
+
+
+
+proc myFoo(a: string) =
+  # proc after 4 white lines
+  discard
+
 
 discard myFoo("a", "b", 1)
 discard my_foo("a", "b", 1)

@@ -3,18 +3,15 @@
 # Copyright 2016 Federico Ceratto <federico.ceratto@gmail.com>
 
 import
-  compiler/parser,
+  compiler/idents,
+  compiler/options,
   compiler/renderer,
   os,
   parsecfg,
   parseopt,
-  pegs,
   strutils
 
-import
-  options, lists
-
-const version = "0.1.0"
+const version = "0.2.0"
 
 from compiler/ast import PNode, nkImportStmt, nkExportStmt, nkCharLit, nkUInt64Lit, nkFloatLit, nkFloat128Lit, nkStrLit, nkTripleStrLit, nkSym, nkIdent
 
@@ -50,62 +47,74 @@ var naming_styles_tracker = initTable[string, NameInstance]()
 
 proc check_node_naming_style(n: PNode, input_fname: string) =
   ## Check naming style
-  let normalized = normalize($n)
+  let name = n.ident.s
+  let normalized = normalize(name)
   let old = naming_styles_tracker.mgetOrPut(
     normalized,
-    ($n, input_fname, n.info.line.int, n.info.col.int)
+    (name, input_fname, n.info.line.int, n.info.col.int)
   )
-  if $n == old.name:
+  if name == old.name:
     return  # already seen or just inserted by mgetOrPut
 
   let msg =
     if input_fname == "":
       # Only one file (or stdin) is being processed
       "Warning: $# at $#:$# also appears as $# at $#:$#" % [
-        $n, $n.info.line, $n.info.col,
+        name, $n.info.line, $n.info.col,
         old.name, $old.linenum, $old.colnum
       ]
     else:
       "Warning: $# at $#:$#:$# also appears as $# at $#:$#:$#" % [
-        $n, input_fname, $n.info.line, $n.info.col,
+        name, input_fname, $n.info.line, $n.info.col,
         old.name, $old.filename, $old.linenum, $old.colnum
       ]
 
-  stderr.writeln msg
+  stderr.writeLine msg
 
-proc check_naming_style(conf: Config, n: PNode, input_fname: string) =
+proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
   ## Recursively check names in AST
   case n.kind
-  of nkImportStmt: discard
-  of nkExportStmt: discard
-  of nkCharLit..nkUInt64Lit: discard
-  of nkFloatLit..nkFloat128Lit: discard
-  of nkStrLit..nkTripleStrLit: discard
-  of nkSym: discard
-  of nkCommentStmt: discard
+  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit, nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym, nkCommentStmt: discard
   of nkIdent:
     check_node_naming_style(n, input_fname)
   else:
     for s in n.sons:
-      check_naming_style(conf, s, input_fname)
+      check_naming_style(nfconf, s, input_fname)
 
-proc nimfmt*(input: string, conf: Config, input_fname: string): seq[string] =
+from compiler/msgs import fileInfoIdx
+from compiler/pathutils import RelativeFile, AbsoluteFile, toAbsoluteDir
+from compiler/syntaxes import setupParsers, TParsers, closeParsers
+import compiler/syntaxes
+
+type
+  PrettyOptions = object
+    indWidth: int
+    maxLineLen: int
+
+proc prettyPrint(nfconf: Config, infile, outFile: string, opt: PrettyOptions) =
+  var conf = newConfigRef()
+  let fileIdx = fileInfoIdx(conf, AbsoluteFile infile)
+  let f = splitFile(outfile.expandTilde)
+  conf.outFile = RelativeFile f.name & f.ext
+  conf.outDir = toAbsoluteDir f.dir
+  var p: TParsers
+  p.parser.em.indWidth = opt.indWidth
+  if setupParsers(p, fileIdx, newIdentCache(), conf):
+    p.parser.em.maxLineLen = opt.maxLineLen
+    var n = parseAll(p)
+    check_naming_style(nfconf, n, infile)
+    closeParsers(p)
+
+proc nimfmt*(nfconf: Config, input_fname, output_fname: string): seq[string] =
   ## Format file
   result = @[]
-  let ast = parseString input
-
-  echo "kind ", ast.kind
-  echo "comment ", ast.comment
-  echo "info ", ast.info
-  #echo "sym ", repr ast.sym
-  #echo "typ ", ast.typ
-  #echo "ident ", repr ast.ident
+  let cache = newIdentCache()
+  var pconf = newConfigRef()
+  #let ast = parseString(input, cache, pconf)
+  let opts = PrettyOptions(maxLineLen: 80, indWidth: 2)
+  prettyPrint(nfconf, input_fname, output_fname, opts)
 
   var formatted: seq[string] = @[]
-  for line in ast.renderTree({renderDocComments}).splitLines():
-    formatted.add line[2..^1].strip(leading = false)
-
-  check_naming_style(conf, ast, input_fname)
 
   return formatted
 
@@ -113,9 +122,7 @@ proc load_config_file(fnames: seq[string]): Config =
   ## Load config file
   for rel_fn in fnames:
     let fn = expandTilde(rel_fn)
-    echo "TRY ", fn
     if fileExists(fn):
-      echo "FOUND ", fn
       return loadConfig(fn)
 
   return newConfig()
@@ -172,8 +179,11 @@ proc main() =
       (dirname, i_fn, _) = input_fn.splitFile()
       output_fn = dirname / "$#$#$#.nim" % [prefix, i_fn, suffix]
       write_to_stdout = (prefix == "" and suffix == "" and not in_place)
-      input_str = readFile(input_fn)
-      output_lines = nimfmt(input_str, conf, input_fn)
+      output_lines = nimfmt(conf, input_fn, output_fn)
+
+    if output_lines.len == 0:
+      echo "Nothing to write"
+      return
 
     if write_to_stdout:
       for line in output_lines:
