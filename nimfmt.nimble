@@ -3,7 +3,7 @@
 version       = "0.1.0"
 author        = "Federico Ceratto"
 description   = "Nim restyling tool"
-license       = "LGPLv3"
+license       = "GPLv3"
 
 bin           = @["nimfmt"]
 
@@ -14,18 +14,18 @@ requires "nim >= 0.14.2"
 # Cmds
 
 task release, "Build a release":
-  exec "nim c -d:release nimfmt.nim"
+  exec "nim c -d:nimOldCaseObjects -d:nimpretty -d:release --hints:off nimfmt.nim"
 
 task b, "Build":
-  exec "nim c nimfmt.nim"
+  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
 
 task test, "Basic test":
-  exec "nim c -r test/unit.nim"
+  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off -r test/unit.nim"
 
 task test_functional, "Basic functional test":
-  exec "nim c nimfmt.nim"
-  exec "nim c -r test/functional.nim"
-
+  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
+  exec "nim c --hints:off test/functional.nim"
+  exec "./test/functional"
 
 task loop, "loop":
   exec "nim c -p:../Nim nimfmt.nim"

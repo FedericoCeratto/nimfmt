@@ -8,7 +8,7 @@ proc exec(cmd: string) =
     raise newException(Exception, "error while executing '$#'" % cmd)
 
 
-proc exec2*(command: string, timeout: int = - 1): tuple[output: string, stderr: string, exitCode: int] {.tags: [ExecIOEffect, ReadIOEffect], gcsafe, discardable.} =
+proc exec2*(command: string, timeout: int = - 1): tuple[output: string, stderr: string, exitCode: int] {.tags: [RootEffect, ExecIOEffect, ReadIOEffect], gcsafe, discardable.} =
   var p = startProcess(command, options={poEvalCommand})
   let exit_code = p.waitForExit(timeout)
   if p.peekExitCode() == -1:
@@ -25,7 +25,9 @@ suite "Functional test":
 
   test "Basic test":
     exec("./nimfmt test/data/sample.nim -p:output_")
-    exec("diff --color=always test/data/sample_expected_output.nim test/data/output_sample.nim")
+    const cmd = "diff --color=always test/data/sample_expected_output.nim test/data/output_sample.nim"
+    echo cmd
+    exec(cmd)
 
   test "Warnings test":
     #exec("./nimfmt test/data/sample.nim -p:output_ -c:test/data/variable_naming_warnings.ini")

@@ -57,3 +57,11 @@ proc my_foo(a: string; b: string; c: int): string =
   If any of -p ..., -s ... or -i are specified the output will be written to disk,
   otherwise to stdout
 ----
+
+==== Installation
+
+[source,bash]
+----
+nimble install compiler@#head
+----
+

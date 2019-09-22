@@ -5,24 +5,30 @@
 #
 
 
+import
+  strutils
+
+# unsorted imports
 import strutils
 import os
 
-# n
+# comment
 
 import times, tables
 
-proc my_foo( a: string,  b:string,c:int, ): string  =
+let camelCase = 3
+
+proc my_foo(a: string, b: string, c: int, ): string =
   ## I'm a doc comment
   # I'm a regular comment
   var messyVar = 3
   messy_var = 4
   messyvar = 5
-  return  "string to return"
-  raise newException( Exception , 
-  "foo" )
-  yield   "string to yield"
-  discard   "string to discard"  # boring comment
+  return "string to return"
+  raise newException(Exception,
+  "foo")
+  yield "string to yield"
+  discard "string to discard" # boring comment
 #
 
   break
@@ -30,6 +36,14 @@ proc my_foo( a: string,  b:string,c:int, ): string  =
 
 
   continue
+
+
+
+
+proc myFoo(a: string) =
+  # proc after 4 white lines
+  discard
+
 
 discard myFoo("a", "b", 1)
 discard my_foo("a", "b", 1)
