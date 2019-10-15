@@ -3,46 +3,63 @@ import unittest
 import strutils, streams, osproc
 
 
-proc exec(cmd: string) =
-  if execCmd(cmd) != 0:
+proc exec(cmd: string, echo=false): string {.discardable.} =
+  let (output, exit_code) = execCmdEx(cmd)
+  if exit_code != 0:
+    echo "Unexpected failure: $#\n----$#\n----" % [$exit_code, output]
     raise newException(Exception, "error while executing '$#'" % cmd)
 
-
-proc exec2*(command: string, timeout: int = - 1): tuple[output: string, stderr: string, exitCode: int] {.tags: [RootEffect, ExecIOEffect, ReadIOEffect], gcsafe, discardable.} =
-  var p = startProcess(command, options={poEvalCommand})
-  let exit_code = p.waitForExit(timeout)
-  if p.peekExitCode() == -1:
-    raise newException(Exception, "timeout")
-
-  result = (p.outputStream().readAll(), p.errorStream().readAll(), exit_code)
-  #close(p)
+  return output
 
 
 suite "Functional test":
 
+  var last_cmd = ""
+  var last_output = ""
+
+  proc nimfmt(cmd: string) =
+    last_cmd = "./nimfmt " & cmd
+    last_output = exec(last_cmd)
+
+  proc diff(fn: string): bool =
+    let (output, exit_code) = execCmdEx(
+      "diff --color=always test/data/expected/$#.nim test/data/generated_sample1.nim" % fn 
+    )
+    if exit_code != 0:
+      echo "--output--"
+      echo last_output
+      echo "---diff---"
+      echo output
+      echo "----------"
+      return false
+
+    return true
+
   teardown:
-    exec "rm test/data/output_*.nim"
+    exec "rm test/data/generated_*.nim -f"
 
-  test "Basic test":
-    exec("./nimfmt test/data/sample.nim -p:output_")
-    const cmd = "diff --color=always test/data/sample_expected_output.nim test/data/output_sample.nim"
-    echo cmd
-    exec(cmd)
+  test "Help":
+    nimfmt("-h")
 
-  test "Warnings test":
-    #exec("./nimfmt test/data/sample.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
-    let (outp, errC) = execCmdEx("./nimfmt test/data/sample.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
-    if errC != 0:
-      echo "Unexpected failure: $#\n----$#\n----" % [$errC, outp]
+  test "Debug custom conf":
+    nimfmt("-d -c=test/data/sample1_fix_naming_snake_case.cfg test/data/empty.nim")
+    check last_output.contains("Reading")
 
-    check errC == 0
-    check outp.contains("Warning")
+  test "Basic":
+    nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
+    check diff("sample1")
 
-    #var e = exec2("./nimfmt test/data/sample.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
-    #if e.exitCode != 0:
-    #  echo "Unexpected failure: $#\n----$#\n----$#\n----" % [$e.exitCode, e.stderr, e.stderr]
-    #  fail()
-    #else:
-    #  check e.exitCode == 0
-    #  check e.stderr.contains "Warning"
-    #  #e = exec2("diff --color=always test/data/sample_expected_output.nim test/data/output_sample.nim")
+  test "Warnings":
+    #nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
+    nimfmt("test/data/sample1.nim -p:generated_ -c:test/data/variable_naming_warnings.ini")
+    check last_output.contains("Warning") # TODO improve
+
+  test "Fix naming style: most popular":
+    # Automatically pick most popular name
+    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/sample1.nim -p:generated_")
+    check diff("sample1_fix_naming_most_popular")
+
+  test "Fix naming style: snake_case":
+    # Automatically pick snake_case if possible
+    nimfmt("-c:test/data/sample1_fix_naming_snake_case.cfg test/data/sample1.nim -p:generated_")
+    check diff("sample1_fix_naming_snake_case")

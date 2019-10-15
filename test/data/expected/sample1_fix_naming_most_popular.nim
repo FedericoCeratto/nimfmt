@@ -18,7 +18,7 @@ import times, tables
 
 let camelCase = 3
 
-proc my_foo(a: string, b: string, c: int, ): string =
+proc myFoo(a: string, b: string, c: int, ): string =
   ## I'm a doc comment
   # I'm a regular comment
   var messyVar = 3
@@ -46,7 +46,8 @@ proc myFoo(a: string) =
 
 
 discard myFoo("a", "b", 1)
-discard my_foo("a", "b", 1)
+discard myFoo("a", "b", 2)
+discard myFoo("a", "b", 1)
 
 # Extra white line at the end
 

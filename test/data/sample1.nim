@@ -46,6 +46,7 @@ proc myFoo(a: string) =
 
 
 discard myFoo("a", "b", 1)
+discard myFoo("a", "b", 2)
 discard my_foo("a", "b", 1)
 
 # Extra white line at the end

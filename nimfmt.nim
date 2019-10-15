@@ -10,6 +10,9 @@ import
   strutils,
   tables
 
+from sequtils import toSeq
+from algorithm import reversed
+
 const version = "0.2.0"
 
 from compiler/ast import PNode, nkImportStmt, nkExportStmt, nkCharLit, nkUInt64Lit, nkFloatLit, nkFloat128Lit, nkStrLit, nkTripleStrLit, nkSym, nkIdent
@@ -25,19 +28,23 @@ from compiler/msgs import fileInfoIdx
 from compiler/pathutils import RelativeFile, AbsoluteFile, toAbsoluteDir
 from compiler/syntaxes import setupParsers, TParsers, closeParsers
 
+const default_conf_search_fns = "./.nimfmt.cfg ~/.config/nimfmt.cfg ~/.nimfmt.cfg /etc/nimfmt.cfg"
+
 
 proc writeHelp(exit_val=0) =
   ## Write help and quit
   let name = getAppFilename().extractFilename()
+  echo "nimfmt v. $#  -  Nim style tool" % version
   echo """
   Usage: $# <filename.nim> [<filename.nim> ... ]
-  [ -p <prefix> ]     output file prefix
-  [ -s <suffix> ]     output file suffix
-  [ -c <filename>, ]  configuration file location(s) (default: ./.nimfmt.cfg ~/.nimfmt.cfg)
-  [ -i ]              update files in-place (dangerous!)
-  [ -w ]              overwrite existing files (automatically enabled when using -i)
-  [-v]                version
-  [-h]                this help
+  [ -p=<prefix> ]        output file prefix
+  [ -s=<suffix> ]        output file suffix
+  [ -c=<filename>,... ]  configuration file search locations (default: )
+  [ -i ]                 update files in-place (dangerous!)
+  [ -w ]                 overwrite existing files (automatically enabled when using -i)
+  [-d]                   debug
+  [-v]                   version
+  [-h]                   this help
 
   If any of -p ..., -s ... or -i are specified the output will be written to disk,
   otherwise to stdout
@@ -45,9 +52,13 @@ proc writeHelp(exit_val=0) =
   quit(exit_val)
 
 
-type NameInstance = tuple[name, filename: string, linenum, colnum: int]
+type
+  NameInstance = tuple[filename: string, linenum, colnum: int]
+  NameInstances = seq[NameInstance]
+  Tracker = OrderedTable[string, NameInstances]
 
-var naming_styles_tracker = initTable[string, seq[NameInstance]]()
+var naming_styles_tracker = initTable[string, Tracker]()
+## normalized name -> name -> NameInstance
 
 
 proc collect_node_naming_style(n: PNode, input_fname: string) =
@@ -56,48 +67,65 @@ proc collect_node_naming_style(n: PNode, input_fname: string) =
   let normalized = normalize(name)
   # normalized --> (name, input_fname, n.info.line.int, n.info.col.int)
   if not naming_styles_tracker.contains(normalized):
-    naming_styles_tracker[normalized] = @[]
+    naming_styles_tracker[normalized] = initOrderedTable[string, NameInstances]()
+  if not naming_styles_tracker[normalized].contains(name):
+    naming_styles_tracker[normalized][name] = @[]
 
-  naming_styles_tracker[normalized].add( (name, input_fname, n.info.line.int, n.info.col.int) )
+  let n: NameInstance = (input_fname, n.info.line.int, n.info.col.int)
+  # naming_styles_tracker[normalized].mgetOrPut(name, @[]).add(n)
+  naming_styles_tracker[normalized][name].add(n)
 
 proc check_node_naming_style(n: PNode, input_fname: string) =
-  ## Check naming style
+  ## Check naming style for one leaf node
   let name = n.ident.s
   let normalized = normalize(name)
 
-  let instances = naming_styles_tracker[normalized]
+  let instances: Tracker = naming_styles_tracker[normalized]
   if instances.len == 1:
     return
 
-  let old = instances[^2]
-
-  if name == old.name:
-    return  # already seen or just inserted by mgetOrPut
+  var names = ""
+  var old: NameInstance
+  for n, o in instances.pairs:
+    if n != name:
+      if names == "":
+        names.add n
+        old = o[0]
+      else:
+        names.add(", " & n)
 
   let msg =
     if input_fname == "":
       # Only one file (or stdin) is being processed
       "Warning: $# at $#:$# also appears as $# at $#:$#" % [
         name, $n.info.line, $n.info.col,
-        old.name, $old.linenum, $old.colnum
+        names, $old.linenum, $old.colnum
       ]
     else:
       "Warning: $# at $#:$#:$# also appears as $# at $#:$#:$#" % [
         name, input_fname, $n.info.line, $n.info.col,
-        old.name, $old.filename, $old.linenum, $old.colnum
+        names, $old.filename, $old.linenum, $old.colnum
       ]
 
   stderr.writeLine msg
 
-proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
-  ## Recursively check names in AST
+proc collect_naming_style(nfconf: Config, n: PNode, input_fname: string) =
+  ## Recursively collect names in AST
   # TODO: switch to scanning over tokens?
-  #let normalized = normalize(n.ident.s)
-
   case n.kind
   of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit, nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym, nkCommentStmt: discard
   of nkIdent:
     collect_node_naming_style(n, input_fname)
+  else:
+    for s in n.sons:
+      collect_naming_style(nfconf, s, input_fname)
+
+proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
+  ## Recursively check names in AST
+  # TODO: switch to scanning over tokens?
+  case n.kind
+  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit, nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym, nkCommentStmt: discard
+  of nkIdent:
     check_node_naming_style(n, input_fname)
   else:
     for s in n.sons:
@@ -105,6 +133,9 @@ proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
 
 proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
   ## Check and fix names in AST
+  for v in naming_styles_tracker.mvalues:
+    v.sort(proc(a, b: tuple[key: string, val: NameInstances]):int = a.val.len - b.val.len)
+
   for i in 0..em.tokens.high:
     let name = em.tokens[i]
     let k = em.kinds[i]
@@ -113,16 +144,34 @@ proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
     let normalized = normalize(name)
     if not naming_styles_tracker.contains normalized:
       continue
-    let instances = naming_styles_tracker[normalized]
-    if instances.len < 2:
-      continue
-    #echo normalized
-    #echo naming_styles_tracker[normalized].len
-    #for i in instances:
-    #  echo i
-    #assert naming_styles_tracker.contains normalized, normalized
-    #echo naming_styles_tracker[normalized]
-    #em.tokens[i] = normalized
+    let instances:Tracker = naming_styles_tracker[normalized]
+    if true: # pick the most popular
+      if instances.len < 2:
+        continue
+
+      case nfconf.getSectionValue("", "proc_naming_style")
+      of "most_popular", "":
+        let choices = toSeq(pairs(naming_styles_tracker[normalized]))
+        let last = choices[^1]
+        if last[1].len == choices[^2][1].len:
+          # the best candidate has the same popularity as the second best
+          continue  # no point in changing style
+
+        em.tokens[i] = last[0]
+
+      of "snake_case":
+        var selected = ""
+        for sname, ni in naming_styles_tracker[normalized]:
+          if sname != sname.toLowerAscii:
+            continue  # ignore non snake
+          if sname.len > selected.len:
+            selected = sname  # pick the longest
+        if selected.len > 0:
+          em.tokens[i] = selected
+
+      else:
+        echo "Error: unexpected proc_naming_style"
+        quit(1)
 
 
 type
@@ -131,7 +180,11 @@ type
     maxLineLen: int
 
 
-proc prettyPrint(nfconf: Config, input_fname, output_fname: string, opt: PrettyOptions): string =
+proc nimfmt*(nfconf: Config, input_fname, output_fname: string): string =
+  ## Format file
+  let cache = newIdentCache()
+  var pconf = newConfigRef()
+  let opt = PrettyOptions(maxLineLen: 80, indWidth: 2)
   var conf = newConfigRef()
   let fileIdx = fileInfoIdx(conf, AbsoluteFile input_fname)
   let f = splitFile(output_fname.expandTilde)
@@ -142,24 +195,38 @@ proc prettyPrint(nfconf: Config, input_fname, output_fname: string, opt: PrettyO
   if setupParsers(p, fileIdx, newIdentCache(), conf):
     p.parser.em.maxLineLen = opt.maxLineLen
     var n = parseAll(p)
-    check_naming_style(nfconf, n, input_fname)
-    fix_naming_style(nfconf, p.parser.em, input_fname)
+
+    collect_naming_style(nfconf, n, input_fname)
+    case nfconf.getSectionValue("", "fix_naming_style")
+    of "":
+      echo "Hint: create a ~/.nimfmt.cfg file to set fix_naming_style"
+      check_naming_style(nfconf, n, input_fname)
+    of "no":
+      check_naming_style(nfconf, n, input_fname)
+    of "auto", "ask":
+      fix_naming_style(nfconf, p.parser.em, input_fname)
+
     # do not call closeParsers(p), instead call directly renderTokens
     result = p.parser.em.renderTokens()
 
-proc nimfmt*(nfconf: Config, input_fname, output_fname: string): string =
-  ## Format file
-  let cache = newIdentCache()
-  var pconf = newConfigRef()
-  #let ast = parseString(input, cache, pconf)
-  let opts = PrettyOptions(maxLineLen: 80, indWidth: 2)
-  return prettyPrint(nfconf, input_fname, output_fname, opts)
 
-proc load_config_file(fnames: seq[string]): Config =
+proc load_config_file(fnames: seq[string], debug=false): Config =
   ## Load config file
-  for rel_fn in fnames:
+  if fnames.len > 0:
+    for rel_fn in fnames:
+      let fn = expandTilde(rel_fn)
+      if fileExists(fn):
+        if debug:
+          echo fmt"Reading {fn}"
+        return loadConfig(fn)
+    echo "Error: configuration file not found"
+    quit(1)
+
+  for rel_fn in default_conf_search_fns.splitWhitespace():
     let fn = expandTilde(rel_fn)
     if fileExists(fn):
+      if debug:
+        echo fmt"Reading {fn}"
       return loadConfig(fn)
 
   return newConfig()
@@ -168,12 +235,13 @@ proc load_config_file(fnames: seq[string]): Config =
 proc main() =
   ## Run nimfmt from CLI
   var
+    debug = false
     input_fnames: seq[string] = @[]
     in_place = false
     suffix = ""
     prefix = ""
     allow_overwrite = false
-    config_filenames: seq[string] = @["./.nimfmt.cfg", "~/.nimfmt.cfg"]
+    conf_search_fns: seq[string] = @[]
 
   for kind, key, val in getopt():
     case kind
@@ -185,7 +253,6 @@ proc main() =
     of cmdLongOption, cmdShortOption:
       case key
       of "help", "h":
-        echo "nimfmt v. $#  -  Nim style tool" % version
         writeHelp()
       of "version", "v":
         echo version
@@ -194,9 +261,12 @@ proc main() =
       of "suffix", "s":
         suffix = val
       of "configfiles", "c":
-        config_filenames = val.split(",")
+        conf_search_fns = val.split(",")
       of "i":
         in_place = true
+        allow_overwrite = true
+      of "d":
+        debug = true
       of "w":
         allow_overwrite = true
       else:
@@ -209,7 +279,7 @@ proc main() =
     echo "Please specify at least an input file. Only files ending with .nim are parsed.\n"
     writeHelp(1)
 
-  let conf = load_config_file(config_filenames)
+  let conf = load_config_file(conf_search_fns, debug)
 
   for input_fn in input_fnames:
     let
