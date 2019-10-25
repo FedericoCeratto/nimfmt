@@ -15,7 +15,8 @@ from algorithm import reversed
 
 const version = "0.2.0"
 
-from compiler/ast import PNode, nkImportStmt, nkExportStmt, nkCharLit, nkUInt64Lit, nkFloatLit, nkFloat128Lit, nkStrLit, nkTripleStrLit, nkSym, nkIdent
+from compiler/ast import PNode, nkImportStmt, nkExportStmt, nkCharLit,
+    nkUInt64Lit, nkFloatLit, nkFloat128Lit, nkStrLit, nkTripleStrLit, nkSym, nkIdent
 
 import
   compiler/ast,
@@ -31,7 +32,7 @@ from compiler/syntaxes import setupParsers, TParsers, closeParsers
 const default_conf_search_fns = "./.nimfmt.cfg ~/.config/nimfmt.cfg ~/.nimfmt.cfg /etc/nimfmt.cfg"
 
 
-proc writeHelp(exit_val=0) =
+proc writeHelp(exit_val = 0) =
   ## Write help and quit
   let name = getAppFilename().extractFilename()
   echo "nimfmt v. $#  -  Nim style tool" % version
@@ -113,7 +114,9 @@ proc collect_naming_style(nfconf: Config, n: PNode, input_fname: string) =
   ## Recursively collect names in AST
   # TODO: switch to scanning over tokens?
   case n.kind
-  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit, nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym, nkCommentStmt: discard
+  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit,
+      nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym,
+      nkCommentStmt: discard
   of nkIdent:
     collect_node_naming_style(n, input_fname)
   else:
@@ -124,7 +127,9 @@ proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
   ## Recursively check names in AST
   # TODO: switch to scanning over tokens?
   case n.kind
-  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit, nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym, nkCommentStmt: discard
+  of nkImportStmt, nkExportStmt, nkCharLit..nkUInt64Lit,
+      nkFloatLit..nkFloat128Lit, nkStrLit..nkTripleStrLit, nkSym,
+      nkCommentStmt: discard
   of nkIdent:
     check_node_naming_style(n, input_fname)
   else:
@@ -134,7 +139,7 @@ proc check_naming_style(nfconf: Config, n: PNode, input_fname: string) =
 proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
   ## Check and fix names in AST
   for v in naming_styles_tracker.mvalues:
-    v.sort(proc(a, b: tuple[key: string, val: NameInstances]):int = a.val.len - b.val.len)
+    v.sort(proc(a, b: tuple[key: string, val: NameInstances]): int = a.val.len - b.val.len)
 
   for i in 0..em.tokens.high:
     let name = em.tokens[i]
@@ -144,7 +149,7 @@ proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
     let normalized = normalize(name)
     if not naming_styles_tracker.contains normalized:
       continue
-    let instances:Tracker = naming_styles_tracker[normalized]
+    let instances: Tracker = naming_styles_tracker[normalized]
     if true: # pick the most popular
       if instances.len < 2:
         continue
@@ -155,7 +160,7 @@ proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
         let last = choices[^1]
         if last[1].len == choices[^2][1].len:
           # the best candidate has the same popularity as the second best
-          continue  # no point in changing style
+          continue # no point in changing style
 
         em.tokens[i] = last[0]
 
@@ -163,9 +168,9 @@ proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
         var selected = ""
         for sname, ni in naming_styles_tracker[normalized]:
           if sname != sname.toLowerAscii:
-            continue  # ignore non snake
+            continue # ignore non snake
           if sname.len > selected.len:
-            selected = sname  # pick the longest
+            selected = sname # pick the longest
         if selected.len > 0:
           em.tokens[i] = selected
 
@@ -210,7 +215,7 @@ proc nimfmt*(nfconf: Config, input_fname, output_fname: string): string =
     result = p.parser.em.renderTokens()
 
 
-proc load_config_file(fnames: seq[string], debug=false): Config =
+proc load_config_file(fnames: seq[string], debug = false): Config =
   ## Load config file
   if fnames.len > 0:
     for rel_fn in fnames:
