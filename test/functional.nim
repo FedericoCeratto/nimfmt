@@ -3,7 +3,7 @@ import unittest
 import strutils, streams, osproc
 
 
-proc exec(cmd: string, echo=false): string {.discardable.} =
+proc exec(cmd: string, echo = false): string {.discardable.} =
   let (output, exit_code) = execCmdEx(cmd)
   if exit_code != 0:
     echo "Unexpected failure: $#\n----$#\n----" % [$exit_code, output]
@@ -21,10 +21,10 @@ suite "Functional test":
     last_cmd = "./nimfmt " & cmd
     last_output = exec(last_cmd)
 
-  proc diff(fn: string): bool =
-    let (output, exit_code) = execCmdEx(
-      "diff --color=always test/data/expected/$#.nim test/data/generated_sample1.nim" % fn 
-    )
+  proc diff(new, exp: string): bool =
+    let cmd = "diff --color=always test/data/expected/$#.nim test/data/generated_$#.nim" %
+        [exp, new]
+    let (output, exit_code) = execCmdEx(cmd)
     if exit_code != 0:
       echo "--output--"
       echo last_output
@@ -47,7 +47,7 @@ suite "Functional test":
 
   test "Basic":
     nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
-    check diff("sample1")
+    check diff("sample1", "sample1")
 
   test "Warnings":
     #nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
@@ -57,9 +57,20 @@ suite "Functional test":
   test "Fix naming style: most popular":
     # Automatically pick most popular name
     nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/sample1.nim -p:generated_")
-    check diff("sample1_fix_naming_most_popular")
+    check diff("sample1", "sample1_fix_naming_most_popular")
 
   test "Fix naming style: snake_case":
     # Automatically pick snake_case if possible
     nimfmt("-c:test/data/sample1_fix_naming_snake_case.cfg test/data/sample1.nim -p:generated_")
-    check diff("sample1_fix_naming_snake_case")
+    check diff("sample1", "sample1_fix_naming_snake_case")
+
+#  test "Fix package directory naming style: most popular":
+#    # Automatically pick most popular name
+#    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/package_directory.nim -p:generated_")
+#    check diff("package_directory", "package_directory")
+
+  test "Fix naming style 2: most popular":
+    # Automatically pick most popular name
+    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/sample2.nim -p:generated_")
+    check diff("sample2", "sample2_fix_naming_most_popular")
+

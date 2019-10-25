@@ -61,11 +61,26 @@ type
 var naming_styles_tracker = initTable[string, Tracker]()
 ## normalized name -> name -> NameInstance
 
+proc nimnormalize(name: string): string =
+  ## Normalize identifier removing underscores and preserving the first char
+  result = newString(name.len)
+  var o = 1
+  result[0] = name[0]
+  for c in name[1..^1]:
+    if c.isUpperAscii():
+      result[o] = c.toLowerAscii()
+      inc o
+    elif c == '_':
+      discard # skip without increasing o
+    else:
+      result[o] = c
+      inc o
+  result.set_len(o)
 
 proc collect_node_naming_style(n: PNode, input_fname: string) =
   ## Collect intances
   let name = n.ident.s
-  let normalized = normalize(name)
+  let normalized = nimnormalize(name)
   # normalized --> (name, input_fname, n.info.line.int, n.info.col.int)
   if not naming_styles_tracker.contains(normalized):
     naming_styles_tracker[normalized] = initOrderedTable[string, NameInstances]()
@@ -79,7 +94,7 @@ proc collect_node_naming_style(n: PNode, input_fname: string) =
 proc check_node_naming_style(n: PNode, input_fname: string) =
   ## Check naming style for one leaf node
   let name = n.ident.s
-  let normalized = normalize(name)
+  let normalized = nimnormalize(name)
 
   let instances: Tracker = naming_styles_tracker[normalized]
   if instances.len == 1:
@@ -146,7 +161,7 @@ proc fix_naming_style(nfconf: Config, em: var Emitter, input_fname: string) =
     let k = em.kinds[i]
     if k != ltIdent:
       continue
-    let normalized = normalize(name)
+    let normalized = nimnormalize(name)
     if not naming_styles_tracker.contains normalized:
       continue
     let instances: Tracker = naming_styles_tracker[normalized]
