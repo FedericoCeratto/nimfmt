@@ -9,7 +9,7 @@ bin           = @["nimfmt"]
 
 # Dependencies
 
-requires "nim >= 0.14.2"
+requires "nim >= 1.0.0", "compiler#head"
 
 # Cmds
 
