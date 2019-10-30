@@ -4,6 +4,7 @@
 * [x] Add/remove whitespaces and commas in function calls
 * [ ] Sort imports
 * [x] Detect inconsistent variable/function naming
+* [x] Fix inconsistent variable/function naming
 * [ ] Enforce variable/function naming style
 * Enforce whitelines (in fixed number or a range):
 ** [ ] before functions
@@ -11,6 +12,34 @@
 ** [ ] end of file
 ** [ ] around imports
 * [ ] Optional # to close blocks
+
+One of the main features is to detect and correct inconsistent variable and function naming.
+
+Using the "most_popular" method, if the same identifier appears within a file as `myName` twice and `my_name` and `myname` once, nimfmt will pick the first one.
+
+Using the "snake_case" method, if the same identifier appears `myName`, `my_name` and `myname`, nimfmt will pick the second one.
+
+==== Configuration
+
+.nimfmt looks for configuration files is the following order:
+* current directory
+* ~/.config/nimfmt.cfg
+* ~/.nimfmt.cfg
+* /etc/nimfmt.cfg
+
+Configuration example:
+[source,nim]
+----
+# Fix inconsistent naming
+# auto     - fix automatically
+# no       - print warning only
+fix_naming_style = "auto"
+
+# Choose the correct naming
+# most_popular  - pick the most frequently used naming style for a given identifier
+# snake_case    - prefer snake_case naming if possible
+proc_naming_style = most_popular
+----
 
 ==== Examples
 
