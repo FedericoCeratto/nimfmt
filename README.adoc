@@ -15,9 +15,9 @@
 
 One of the main features is to detect and correct inconsistent variable and function naming.
 
-Using proc_naming_style = most_popular, if the same identifier appears within a file as `myName` more frequently and `my_name` and `myname` less frequently, nimfmt will pick the first one.
+Using proc_naming_style = most_popular, if the same identifier appears within a file as `myName` more frequently and `my_name` and `myname` less frequently, nimfmt will pick the first one. This is the recommended setting to ensure consistency without having to explicitly configure nimfmt with a preferred style.
 
-Using proc_naming_style = snake_case, if the same identifier appears `myName`, `my_name` and `myname`, nimfmt will pick the second one.
+Using proc_naming_style = snake_case, if the same identifier appears as `myName`, `my_name` and `myname`, nimfmt will pick the second one.
 
 ==== Configuration
 
