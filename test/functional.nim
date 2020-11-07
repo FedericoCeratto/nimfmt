@@ -1,6 +1,6 @@
 
 import unittest
-import strutils, streams, osproc
+import strutils, osproc
 
 
 proc exec(cmd: string, echo = false): string {.discardable.} =
@@ -22,7 +22,7 @@ suite "Functional test":
     last_output = exec(last_cmd)
 
   proc diff(new, exp: string): bool =
-    let cmd = "diff --color=always test/data/expected/$#.nim test/data/generated_$#.nim" %
+    let cmd = "diff test/data/expected/$#.nim test/data/generated_$#.nim" %
         [exp, new]
     let (output, exit_code) = execCmdEx(cmd)
     if exit_code != 0:
@@ -36,7 +36,8 @@ suite "Functional test":
     return true
 
   teardown:
-    exec "rm test/data/generated_*.nim -f"
+    discard
+    exec "rm test/data/generated_*.nim 2> /dev/null || true"
 
   test "Help":
     nimfmt("-h")
@@ -45,9 +46,9 @@ suite "Functional test":
     nimfmt("-d -c=test/data/sample1_fix_naming_snake_case.cfg test/data/empty.nim")
     check last_output.contains("Reading")
 
-  test "Basic":
-    nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
-    check diff("sample1", "sample1")
+  # test "Basic":
+  #   nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
+  #   check diff("sample1", "sample1")
 
   test "Warnings":
     #nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
@@ -56,12 +57,12 @@ suite "Functional test":
 
   test "Fix naming style: most popular":
     # Automatically pick most popular name
-    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/sample1.nim -p:generated_")
+    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg -w test/data/sample1.nim -p:generated_")
     check diff("sample1", "sample1_fix_naming_most_popular")
 
   test "Fix naming style: snake_case":
     # Automatically pick snake_case if possible
-    nimfmt("-c:test/data/sample1_fix_naming_snake_case.cfg test/data/sample1.nim -p:generated_")
+    nimfmt("-c:test/data/sample1_fix_naming_snake_case.cfg -w test/data/sample1.nim -p:generated_")
     check diff("sample1", "sample1_fix_naming_snake_case")
 
 #  test "Fix package directory naming style: most popular":
@@ -71,6 +72,6 @@ suite "Functional test":
 
   test "Fix naming style 2: most popular":
     # Automatically pick most popular name
-    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg test/data/sample2.nim -p:generated_")
+    nimfmt("-c:test/data/sample1_fix_naming_most_popular.cfg -w test/data/sample2.nim -p:generated_")
     check diff("sample2", "sample2_fix_naming_most_popular")
 
