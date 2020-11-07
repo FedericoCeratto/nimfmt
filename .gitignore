@@ -1,1 +1,3 @@
 nimcache/
+test/functional
+nimfmt

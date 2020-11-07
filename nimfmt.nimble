@@ -19,10 +19,7 @@ task release, "Build a release":
 task b, "Build":
   exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
 
-task test, "Basic test":
-  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off -r test/unit.nim"
-
-task test_functional, "Basic functional test":
+task test, "Basic functional test":
   exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
   exec "nim c --hints:off test/functional.nim"
   exec "./test/functional"
