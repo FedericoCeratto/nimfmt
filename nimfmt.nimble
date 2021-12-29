@@ -14,14 +14,14 @@ requires "nim >= 1.0.0"
 # Cmds
 
 task release, "Build a release":
-  exec "nim c -d:nimOldCaseObjects -d:nimpretty -d:release --hints:off nimfmt.nim"
+  exec "nim c -d:nimpretty -d:release --hints:off nimfmt.nim"
 
 task b, "Build":
-  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
+  exec "nim c -d:nimpretty --hints:off nimfmt.nim"
 
 task test, "Basic functional test":
-  exec "nim c -d:nimOldCaseObjects -d:nimpretty --hints:off nimfmt.nim"
-  exec "nim c --hints:off test/functional.nim"
+  exec "nim c -d:nimpretty --hints:off nimfmt.nim"
+  exec "nim c -d:nimpretty --hints:off test/functional.nim"
   exec "./test/functional"
 
 task loop, "loop":
