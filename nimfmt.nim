@@ -27,7 +27,7 @@ import
 
 from compiler/msgs import fileInfoIdx
 from compiler/pathutils import RelativeFile, AbsoluteFile, toAbsoluteDir
-from compiler/syntaxes import setupParsers, TParsers, closeParsers
+from compiler/syntaxes import setupParser, Parser, closeParser
 
 const default_conf_search_fns = "./.nimfmt.cfg ~/.config/nimfmt.cfg ~/.nimfmt.cfg /etc/nimfmt.cfg"
 
@@ -210,10 +210,10 @@ proc nimfmt*(nfconf: Config, input_fname, output_fname: string): string =
   let f = splitFile(output_fname.expandTilde)
   conf.outFile = RelativeFile f.name & f.ext
   conf.outDir = toAbsoluteDir f.dir
-  var p: TParsers
-  p.parser.em.indWidth = opt.indWidth
-  if setupParsers(p, fileIdx, newIdentCache(), conf):
-    p.parser.em.maxLineLen = opt.maxLineLen
+  var p: Parser
+  p.em.indWidth = opt.indWidth
+  if setupParser(p, fileIdx, newIdentCache(), conf):
+    p.em.maxLineLen = opt.maxLineLen
     var n = parseAll(p)
 
     collect_naming_style(nfconf, n, input_fname)
@@ -224,10 +224,10 @@ proc nimfmt*(nfconf: Config, input_fname, output_fname: string): string =
     of "no":
       check_naming_style(nfconf, n, input_fname)
     of "auto", "ask":
-      fix_naming_style(nfconf, p.parser.em, input_fname)
+      fix_naming_style(nfconf, p.em, input_fname)
 
     # do not call closeParsers(p), instead call directly renderTokens
-    result = p.parser.em.renderTokens()
+    result = p.em.renderTokens()
 
 
 proc load_config_file(fnames: seq[string], debug = false): Config =
