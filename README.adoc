@@ -1,10 +1,10 @@
 === Nim code formatter / style checker
 
 .Features
+* [x] Detect inconsistent variable and proc naming
+* [x] Fix inconsistent variable and proc naming
 * [x] Add/remove whitespaces and commas in function calls
 * [ ] Sort imports
-* [x] Detect inconsistent variable/function naming
-* [x] Fix inconsistent variable/function naming
 * [ ] Enforce variable/function naming style
 * Enforce whitelines (in fixed number or a range):
 ** [ ] before functions
@@ -91,6 +91,6 @@ proc my_foo(a: string; b: string; c: int): string =
 
 [source,bash]
 ----
-nimble install compiler@#head
+nimble install https://github.com/FedericoCeratto/nimfmt
 ----
 
