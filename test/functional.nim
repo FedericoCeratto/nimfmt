@@ -46,9 +46,9 @@ suite "Functional test":
     nimfmt("-d -c=test/data/sample1_fix_naming_snake_case.cfg test/data/empty.nim")
     check last_output.contains("Reading")
 
-  # test "Basic":
-  #   nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
-  #   check diff("sample1", "sample1")
+  test "Basic":
+    nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:generated_")
+    check diff("sample1", "sample1")
 
   test "Warnings":
     #nimfmt("-c:test/data/sample1.cfg test/data/sample1.nim -p:output_ -c:test/data/variable_naming_warnings.ini")
